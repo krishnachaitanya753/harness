@@ -9,6 +9,7 @@ Still deliberately minimal: no tools, no context management. Those arrive later 
 """
 
 from client import LLMClient
+from context import deliver
 from instructions import build_system_prompt
 from workspace import Workspace
 
@@ -24,6 +25,8 @@ class Agent:
 
     def send(self, user_message):
         """Run one turn: record the user message, get a reply, record it, return it."""
+        # Context delivery: expand any @file references into their contents first.
+        user_message = deliver(user_message, self.workspace)
         self.messages.append({"role": "user", "content": user_message})
         reply = self.client.chat(self.messages)
         self.messages.append({"role": "assistant", "content": reply})
@@ -31,9 +34,10 @@ class Agent:
 
 
 if __name__ == "__main__":
-    # No identity passed in code — AGENTS.md provides it. Ask its name and it
-    # should answer "Gemma", proving the instruction layer loaded.
     agent = Agent()
 
-    print("You: What is your name?")
-    print("Bot:", agent.send("What is your name? Answer in one short sentence."))
+    # Context delivery: @facts.txt is read off disk and injected before the
+    # question, so the model can answer from a file it was never told directly.
+    q = "@facts.txt Based only on the file, who is Raveena? Answer in one short sentence."
+    print("You:", q)
+    print("Bot:", agent.send(q))

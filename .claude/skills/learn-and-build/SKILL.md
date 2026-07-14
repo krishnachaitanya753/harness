@@ -29,8 +29,10 @@ time, understanding each piece before moving on. This skill is the loop we run f
 - Prefer something Krishna could re-type from memory over something impressive.
 
 ### 4. Verify + explain
-- Show how to run/test it (PowerShell commands). Run it if that's useful and safe.
-- Walk through what just happened, tying the code back to the concept from step 2.
+- Give Krishna the exact command to run (PowerShell / `uv run ...`). **Do NOT run demos yourself** —
+  he runs and analyzes the output himself; that's part of the learning.
+- Once he shares the result (or if he asks), walk through what happened, tying the code back to the
+  concept from step 2.
 - Invite questions / tweaks before moving on.
 
 ### 5. Log the lesson
