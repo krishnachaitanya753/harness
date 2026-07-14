@@ -12,8 +12,10 @@ result back. The model never touches the machine directly.
 """
 
 from client import LLMClient
+from compaction import maybe_compact
 from context import deliver
 from instructions import build_system_prompt
+from limits import TOKEN_BUDGET, clamp
 from tools import TOOLS, parse_tool_call, run_tool, tool_instructions
 from workspace import Workspace
 
@@ -28,10 +30,11 @@ def console_approver(name, args):
 
 class Agent:
     def __init__(self, client=None, system_prompt="You are a helpful agent.",
-                 workspace=".", approver=None):
+                 workspace=".", approver=None, token_budget=TOKEN_BUDGET):
         self.client = client or LLMClient()
         self.workspace = Workspace(workspace)
         self.approver = approver  # callable(name, args) -> bool; None = deny everything
+        self.token_budget = token_budget
         # System message = built-in prompt + AGENTS.md + the tool protocol/specs.
         system = build_system_prompt(system_prompt, self.workspace.root)
         system += "\n\n" + tool_instructions()
@@ -41,9 +44,16 @@ class Agent:
         """One plain turn (no tool loop)."""
         user_message = deliver(user_message, self.workspace)
         self.messages.append({"role": "user", "content": user_message})
+        self._manage_context()
         reply = self.client.chat(self.messages)
         self.messages.append({"role": "assistant", "content": reply})
         return reply
+
+    def _manage_context(self):
+        """Compact the conversation if it has outgrown the budget."""
+        self.messages, compacted = maybe_compact(self.messages, self.client, self.token_budget)
+        if compacted:
+            print("[context compacted]")
 
     def run(self, user_message):
         """Agentic loop: send -> if the model asks for a tool, run it and feed the
@@ -52,6 +62,7 @@ class Agent:
         self.messages.append({"role": "user", "content": user_message})
 
         for _ in range(MAX_STEPS):
+            self._manage_context()
             reply = self.client.chat(self.messages)
             self.messages.append({"role": "assistant", "content": reply})
 
@@ -60,7 +71,8 @@ class Agent:
                 return reply  # no tool requested => this is the final answer
 
             name, args = call["tool"], call["args"]
-            result = self._dispatch(name, args)
+            # Clamp so one giant tool output can't flood the window on its own.
+            result = clamp(self._dispatch(name, args))
             # Hand the result back so the model can use it on the next turn.
             self.messages.append({"role": "user", "content": f"[tool result for {name}]: {result}"})
 

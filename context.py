@@ -14,6 +14,8 @@ context window is a later chapter.
 
 import re
 
+from limits import clamp
+
 # An @ref is @ followed by a path-like token (letters, digits, / \ . _ -).
 _REF = re.compile(r"@([\w./\\-]+)")
 
@@ -33,7 +35,7 @@ def deliver(message, workspace):
     for ref in refs:
         try:
             path = workspace.resolve(ref)  # confinement happens here
-            text = path.read_text(encoding="utf-8")
+            text = clamp(path.read_text(encoding="utf-8"))  # a giant file can't flood the window
             blocks.append(f"[Contents of {ref}]:\n{text}")
         except (OSError, ValueError) as e:
             blocks.append(f"[Could not read {ref}: {e}]")
