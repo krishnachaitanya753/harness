@@ -1,7 +1,8 @@
-"""Provider client wrapper — the single doorway for every LLM call.
+"""LLM client wrapper — the single doorway for every LLM call.
 
-Every other part of the harness calls chat(); nothing else talks to an API directly.
-That lets us swap or add backends (Google, Groq, ...) by changing CONFIG, not logic.
+Now a class instead of a bare function: future features (streaming, tool-calling,
+retries, provider fallback) become new methods or small tweaks *inside here*, so
+the rest of the harness never has to change how it calls the model.
 """
 
 import os
@@ -12,7 +13,6 @@ from openai import OpenAI
 load_dotenv()  # reads .env into environment variables (keys never live in code)
 
 # Provider registry. Adding a new OpenAI-compatible backend = one more entry here.
-# This is why the wrapper is "provider-agnostic": callers pick a name, not a URL.
 PROVIDERS = {
     "google": {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
@@ -25,25 +25,34 @@ PROVIDERS = {
 }
 
 
-def chat(messages, model="gemma-4-31b-it", provider="google"):
-    """Send chat messages to a model and return the reply text.
+class LLMClient:
+    """Wraps one provider + default model behind a stable .chat() call.
 
-    messages: list of {"role": ..., "content": ...} dicts (the OpenAI format).
-              This list is what will later grow each turn to give an agent memory.
-    model:    which model to use. It's a parameter (not hardcoded) so later each
-              agent can pick its own — big model for an orchestrator, cheap one
-              for workers.
-    provider: which entry in PROVIDERS to route through.
+    Everything in the harness talks to an LLMClient, never to the OpenAI SDK
+    directly, so swapping providers or adding behaviour stays local to this class.
     """
-    cfg = PROVIDERS[provider]
-    api_key = os.environ[cfg["env_key"]]  # KeyError here means the key isn't set
-    client = OpenAI(base_url=cfg["base_url"], api_key=api_key)
 
-    resp = client.chat.completions.create(model=model, messages=messages)
-    return resp.choices[0].message.content
+    def __init__(self, provider="google", model="gemma-4-31b-it"):
+        cfg = PROVIDERS[provider]
+        self.provider = provider
+        self.model = model
+        # Build the SDK client once and reuse it for every call.
+        self._client = OpenAI(base_url=cfg["base_url"], api_key=os.environ[cfg["env_key"]])
+
+    def chat(self, messages, model=None):
+        """Send a messages list and return the assistant's reply text.
+
+        `model` overrides the instance default per-call — useful later when one
+        agent wants a bigger/smaller model for a single request.
+        """
+        resp = self._client.chat.completions.create(
+            model=model or self.model,
+            messages=messages,
+        )
+        return resp.choices[0].message.content
 
 
 if __name__ == "__main__":
-    # Quick manual test:  python client.py
-    reply = chat([{"role": "user", "content": "In one sentence, what is an agent harness?"}])
-    print(reply)
+    # Quick manual test:  uv run python client.py
+    client = LLMClient()
+    print(client.chat([{"role": "user", "content": "In one sentence, what is an agent harness?"}]))
