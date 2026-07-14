@@ -1,43 +1,87 @@
-"""Agent — a conversation that remembers, now with a layered system prompt.
+"""Agent — a conversation that remembers, follows instructions, reads files, and
+now *acts* through tools.
 
-The Agent owns `self.messages` (conversation state) and a `Workspace` (the dir it
-is confined to). Its system message is built from a layer: the built-in prompt
-plus the project's AGENTS.md (see instructions.py).
+Two entry points:
+- send(): one plain chat turn (Ch 2-4).
+- run():  the agentic tool loop (Ch 5). The model may call tools repeatedly until
+          it gives a final answer, capped at MAX_STEPS so it can't spin forever.
 
-Still deliberately minimal: no tools, no context management. Those arrive later as
-*new methods* on this class, without changing how .send() is used.
+The split to notice: the model only emits a JSON request for a tool; the harness
+decides whether/how to run it (approval gate, workspace confinement) and feeds the
+result back. The model never touches the machine directly.
 """
 
 from client import LLMClient
 from context import deliver
 from instructions import build_system_prompt
+from tools import TOOLS, parse_tool_call, run_tool, tool_instructions
 from workspace import Workspace
+
+MAX_STEPS = 6  # cap the tool loop so a confused model can't loop forever
+
+
+def console_approver(name, args):
+    """Interactive approval gate: pause and ask the human at the terminal."""
+    print(f"\n[approval needed] tool={name!r} args={args}")
+    return input("approve? (y/n): ").strip().lower().startswith("y")
 
 
 class Agent:
-    def __init__(self, client=None, system_prompt="You are a helpful agent.", workspace="."):
+    def __init__(self, client=None, system_prompt="You are a helpful agent.",
+                 workspace=".", approver=None):
         self.client = client or LLMClient()
         self.workspace = Workspace(workspace)
-        # Instructions are a layer: built-in prompt + optional AGENTS.md from the
-        # workspace. Set once here, prepended on every turn as the system message.
+        self.approver = approver  # callable(name, args) -> bool; None = deny everything
+        # System message = built-in prompt + AGENTS.md + the tool protocol/specs.
         system = build_system_prompt(system_prompt, self.workspace.root)
+        system += "\n\n" + tool_instructions()
         self.messages = [{"role": "system", "content": system}]
 
     def send(self, user_message):
-        """Run one turn: record the user message, get a reply, record it, return it."""
-        # Context delivery: expand any @file references into their contents first.
+        """One plain turn (no tool loop)."""
         user_message = deliver(user_message, self.workspace)
         self.messages.append({"role": "user", "content": user_message})
         reply = self.client.chat(self.messages)
         self.messages.append({"role": "assistant", "content": reply})
         return reply
 
+    def run(self, user_message):
+        """Agentic loop: send -> if the model asks for a tool, run it and feed the
+        result back -> repeat until a final (non-tool) answer or the step cap."""
+        user_message = deliver(user_message, self.workspace)
+        self.messages.append({"role": "user", "content": user_message})
+
+        for _ in range(MAX_STEPS):
+            reply = self.client.chat(self.messages)
+            self.messages.append({"role": "assistant", "content": reply})
+
+            call = parse_tool_call(reply)
+            if call is None:
+                return reply  # no tool requested => this is the final answer
+
+            name, args = call["tool"], call["args"]
+            result = self._dispatch(name, args)
+            # Hand the result back so the model can use it on the next turn.
+            self.messages.append({"role": "user", "content": f"[tool result for {name}]: {result}"})
+
+        return "Stopped: reached the step limit without a final answer."
+
+    def _dispatch(self, name, args):
+        """Run a requested tool, applying the approval gate for dangerous ones."""
+        tool = TOOLS.get(name)
+        if tool and tool.requires_approval:
+            approved = self.approver(name, args) if self.approver else False
+            if not approved:
+                return f"Denied: {name} was not approved."
+        return run_tool(name, args, self.workspace)
+
 
 if __name__ == "__main__":
-    agent = Agent()
+    # Demo runs in a scratch workspace so writes never touch the real repo.
+    agent = Agent(workspace="scratch", approver=console_approver)
 
-    # Context delivery: @facts.txt is read off disk and injected before the
-    # question, so the model can answer from a file it was never told directly.
-    q = "@facts.txt Based only on the file, who is Raveena? Answer in one short sentence."
-    print("You:", q)
-    print("Bot:", agent.send(q))
+    print("=== calculator (runs free) ===")
+    print("Bot:", agent.run("What is 12 * (3 + 4)? Use the calculator tool."))
+
+    print("\n=== write_file (approval gate) ===")
+    print("Bot:", agent.run("Write 'hello from the agent' to hello.txt using the write_file tool."))
