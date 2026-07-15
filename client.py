@@ -38,6 +38,10 @@ class LLMClient:
         self.model = model
         # Build the SDK client once and reuse it for every call.
         self._client = OpenAI(base_url=cfg["base_url"], api_key=os.environ[cfg["env_key"]])
+        # Model-reported token count from the most recent call, if any. None
+        # until the first response comes back — callers fall back to an
+        # estimate until then.
+        self.last_usage = None
 
     def chat(self, messages, model=None):
         """Send a messages list and return the assistant's reply text.
@@ -49,6 +53,8 @@ class LLMClient:
             model=model or self.model,
             messages=messages,
         )
+        if resp.usage:
+            self.last_usage = resp.usage.total_tokens
         return resp.choices[0].message.content
 
 

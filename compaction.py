@@ -19,13 +19,20 @@ SUMMARY_PROMPT = (
 )
 
 
-def maybe_compact(messages, client, budget=TOKEN_BUDGET):
+def maybe_compact(messages, client, budget=TOKEN_BUDGET, actual_tokens=None):
     """Return (messages, did_compact). Compacts only when over budget.
+
+    `actual_tokens`: the model-reported count from the last response (see
+    LLMClient.last_usage), preferred over the chars/4 estimate when we have
+    one. It lags by one turn (it's the count from BEFORE the message we're
+    about to send), which is fine — we only need "are we near the budget",
+    not a perfect live count.
 
     Shape: [system] + head + [summary note] + tail — the system message is never
     touched, and the middle collapses into one message.
     """
-    if estimate_tokens(messages) <= budget:
+    token_count = actual_tokens if actual_tokens is not None else estimate_tokens(messages)
+    if token_count <= budget:
         return messages, False
 
     system, rest = messages[:1], messages[1:]

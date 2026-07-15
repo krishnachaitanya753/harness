@@ -17,6 +17,10 @@ import re
 from dataclasses import dataclass
 from typing import Callable
 
+from limits import clamp
+from memory import search_sessions
+from sandbox import run_shell
+
 
 @dataclass
 class Tool:
@@ -62,6 +66,27 @@ def write_file(args, workspace):
     return f"Wrote {len(args['content'])} chars to {args['path']}"
 
 
+def read_file(args, workspace):
+    """Read a text file, confined to the workspace. This is how the model pulls
+    in a skill's full body once it decides (from the ad in the system prompt)
+    that the skill is relevant."""
+    path = workspace.resolve(args["path"])        # refuses escapes + secrets
+    return clamp(path.read_text(encoding="utf-8"))
+
+
+def bash(args, workspace):
+    """Run a shell command in the sandbox (see sandbox.py for what that does
+    and does not guarantee without Docker)."""
+    return clamp(run_shell(args["command"], workspace))
+
+
+def search_memory(args, workspace):
+    """Keyword search across ALL saved sessions (workspace unused) — episodic
+    recall of facts from past conversations, not just the current one."""
+    hits = search_sessions(args["query"])
+    return "\n".join(hits) if hits else "No matches found."
+
+
 # ---- registry -------------------------------------------------------------
 
 TOOLS = {
@@ -78,6 +103,27 @@ TOOLS = {
         parameters={"path": "relative file path", "content": "text to write"},
         func=write_file,
         requires_approval=True,    # dangerous → hits the approval gate
+    ),
+    "read_file": Tool(
+        name="read_file",
+        description="Read the contents of a text file inside the workspace.",
+        parameters={"path": "relative file path"},
+        func=read_file,
+        requires_approval=False,   # reading inside the jail is safe → runs free
+    ),
+    "bash": Tool(
+        name="bash",
+        description="Run a shell command in a sandboxed working directory.",
+        parameters={"command": "the shell command to run"},
+        func=bash,
+        requires_approval=True,    # runs real commands → hits the approval gate
+    ),
+    "search_memory": Tool(
+        name="search_memory",
+        description="Keyword search across all saved conversation sessions.",
+        parameters={"query": "the word or phrase to search for"},
+        func=search_memory,
+        requires_approval=False,   # read-only → runs free
     ),
 }
 

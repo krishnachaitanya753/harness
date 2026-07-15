@@ -16,6 +16,8 @@ from compaction import maybe_compact
 from context import deliver
 from instructions import build_system_prompt
 from limits import TOKEN_BUDGET, clamp
+from memory import load_session, save_session
+from skills import render_skills
 from tools import TOOLS, parse_tool_call, run_tool, tool_instructions
 from workspace import Workspace
 
@@ -30,15 +32,33 @@ def console_approver(name, args):
 
 class Agent:
     def __init__(self, client=None, system_prompt="You are a helpful agent.",
-                 workspace=".", approver=None, token_budget=TOKEN_BUDGET):
+                 workspace=".", approver=None, token_budget=TOKEN_BUDGET, session=None):
         self.client = client or LLMClient()
         self.workspace = Workspace(workspace)
         self.approver = approver  # callable(name, args) -> bool; None = deny everything
         self.token_budget = token_budget
-        # System message = built-in prompt + AGENTS.md + the tool protocol/specs.
+        self.session = session  # session name; if set, conversation persists to disk
+
+        # A resumed session's saved messages ARE the conversation state — load
+        # verbatim instead of rebuilding, so a restarted process picks up
+        # exactly where it left off.
+        loaded = load_session(session) if session else None
+        if loaded:
+            self.messages = loaded
+            return
+
+        # No saved session (or none requested): build the system message fresh.
+        # Built-in prompt + AGENTS.md + tool specs + skill ads.
         system = build_system_prompt(system_prompt, self.workspace.root)
         system += "\n\n" + tool_instructions()
+        skills_block = render_skills(self.workspace)
+        if skills_block:
+            system += "\n\n" + skills_block
         self.messages = [{"role": "system", "content": system}]
+
+    def _save(self):
+        if self.session:
+            save_session(self.session, self.messages)
 
     def send(self, user_message):
         """One plain turn (no tool loop)."""
@@ -47,11 +67,16 @@ class Agent:
         self._manage_context()
         reply = self.client.chat(self.messages)
         self.messages.append({"role": "assistant", "content": reply})
+        self._save()
         return reply
 
     def _manage_context(self):
-        """Compact the conversation if it has outgrown the budget."""
-        self.messages, compacted = maybe_compact(self.messages, self.client, self.token_budget)
+        """Compact the conversation if it has outgrown the budget. Prefers the
+        model-reported token count (from the previous call) over the chars/4
+        estimate, falling back to the estimate before the first call."""
+        self.messages, compacted = maybe_compact(
+            self.messages, self.client, self.token_budget, actual_tokens=self.client.last_usage,
+        )
         if compacted:
             print("[context compacted]")
 
@@ -68,6 +93,7 @@ class Agent:
 
             call = parse_tool_call(reply)
             if call is None:
+                self._save()
                 return reply  # no tool requested => this is the final answer
 
             name, args = call["tool"], call["args"]
@@ -76,6 +102,7 @@ class Agent:
             # Hand the result back so the model can use it on the next turn.
             self.messages.append({"role": "user", "content": f"[tool result for {name}]: {result}"})
 
+        self._save()
         return "Stopped: reached the step limit without a final answer."
 
     def _dispatch(self, name, args):
