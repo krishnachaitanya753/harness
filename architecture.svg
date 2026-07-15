@@ -1,0 +1,127 @@
+<svg viewBox="0 0 1080 720" width="2160" height="1440" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, system-ui, -apple-system, sans-serif">
+<rect x="0" y="0" width="1080" height="720" fill="#FAF9F5"/>
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#888780"/></marker></defs>
+
+<text x="20" y="34" font-size="16" font-weight="500" fill="#2C2C2A">Agent harness — end-to-end architecture</text>
+<text x="20" y="52" font-size="11" fill="#5F5E5A">the complete target system · agent = model + harness + UI</text>
+
+<rect x="20" y="70" width="150" height="52" rx="4" fill="#F1EFE8" stroke="#5F5E5A"/>
+<text x="95" y="92" text-anchor="middle" font-size="13" font-weight="500" fill="#444441">You</text>
+<text x="95" y="109" text-anchor="middle" font-size="11" fill="#5F5E5A">task in · answer out</text>
+
+<rect x="200" y="70" width="200" height="52" rx="4" fill="#F1EFE8" stroke="#5F5E5A"/>
+<text x="300" y="92" text-anchor="middle" font-size="13" font-weight="500" fill="#444441">terminal UI</text>
+<text x="300" y="109" text-anchor="middle" font-size="11" fill="#5F5E5A">chat pane · live trace pane</text>
+
+<rect x="430" y="70" width="200" height="52" rx="4" fill="#EEEDFE" stroke="#534AB7"/>
+<text x="530" y="92" text-anchor="middle" font-size="13" font-weight="500" fill="#3C3489">orchestrator</text>
+<text x="530" y="109" text-anchor="middle" font-size="11" fill="#534AB7">plan steps · gate · retry</text>
+
+<rect x="20" y="180" width="200" height="60" rx="4" fill="#EEEDFE" stroke="#534AB7"/>
+<text x="120" y="205" text-anchor="middle" font-size="13" font-weight="500" fill="#3C3489">instructions</text>
+<text x="120" y="223" text-anchor="middle" font-size="11" fill="#534AB7">system prompt + AGENTS.md</text>
+
+<rect x="20" y="255" width="200" height="60" rx="4" fill="#EEEDFE" stroke="#534AB7"/>
+<text x="120" y="280" text-anchor="middle" font-size="13" font-weight="500" fill="#3C3489">skills</text>
+<text x="120" y="298" text-anchor="middle" font-size="11" fill="#534AB7">ads in prompt · body on demand</text>
+
+<rect x="20" y="330" width="200" height="60" rx="4" fill="#EEEDFE" stroke="#534AB7"/>
+<text x="120" y="355" text-anchor="middle" font-size="13" font-weight="500" fill="#3C3489">context delivery</text>
+<text x="120" y="373" text-anchor="middle" font-size="11" fill="#534AB7">@refs → file contents</text>
+
+<rect x="20" y="420" width="200" height="60" rx="4" fill="#E1F5EE" stroke="#0F6E56"/>
+<text x="120" y="445" text-anchor="middle" font-size="13" font-weight="500" fill="#085041">durable memory</text>
+<text x="120" y="463" text-anchor="middle" font-size="11" fill="#0F6E56">JSONL sessions · episodic search</text>
+
+<rect x="250" y="180" width="380" height="190" rx="4" fill="none" stroke="#888780"/>
+<text x="264" y="202" font-size="12" fill="#444441">Agent — the loop</text>
+
+<rect x="270" y="212" width="170" height="56" rx="4" fill="#E1F5EE" stroke="#0F6E56"/>
+<text x="355" y="235" text-anchor="middle" font-size="13" font-weight="500" fill="#085041">messages[]</text>
+<text x="355" y="253" text-anchor="middle" font-size="11" fill="#0F6E56">conversation state</text>
+
+<rect x="450" y="212" width="160" height="56" rx="4" fill="#EEEDFE" stroke="#534AB7"/>
+<text x="530" y="235" text-anchor="middle" font-size="13" font-weight="500" fill="#3C3489">send() · run()</text>
+<text x="530" y="253" text-anchor="middle" font-size="11" fill="#534AB7">loop until done</text>
+
+<rect x="270" y="288" width="170" height="56" rx="4" fill="#EEEDFE" stroke="#534AB7"/>
+<text x="355" y="311" text-anchor="middle" font-size="12" font-weight="500" fill="#3C3489">context manager</text>
+<text x="355" y="329" text-anchor="middle" font-size="11" fill="#534AB7">compact middle · clamp items</text>
+
+<rect x="450" y="288" width="160" height="56" rx="4" fill="#FAECE7" stroke="#993C1D"/>
+<text x="530" y="311" text-anchor="middle" font-size="13" font-weight="500" fill="#712B13">dispatch</text>
+<text x="530" y="329" text-anchor="middle" font-size="11" fill="#993C1D">approval gate</text>
+
+<rect x="660" y="180" width="190" height="60" rx="4" fill="#FAECE7" stroke="#993C1D"/>
+<text x="755" y="205" text-anchor="middle" font-size="13" font-weight="500" fill="#712B13">tools registry</text>
+<text x="755" y="223" text-anchor="middle" font-size="11" fill="#993C1D">calc · read/write · bash</text>
+
+<rect x="660" y="260" width="190" height="60" rx="4" fill="#FAECE7" stroke="#993C1D"/>
+<text x="755" y="285" text-anchor="middle" font-size="13" font-weight="500" fill="#712B13">sandbox</text>
+<text x="755" y="303" text-anchor="middle" font-size="11" fill="#993C1D">Docker · no net · scrubbed env</text>
+
+<rect x="660" y="340" width="190" height="60" rx="4" fill="#FAECE7" stroke="#993C1D"/>
+<text x="755" y="365" text-anchor="middle" font-size="13" font-weight="500" fill="#712B13">workspace</text>
+<text x="755" y="383" text-anchor="middle" font-size="11" fill="#993C1D">path jail for all file access</text>
+
+<rect x="660" y="420" width="190" height="60" rx="4" fill="#EEEDFE" stroke="#534AB7"/>
+<text x="755" y="445" text-anchor="middle" font-size="13" font-weight="500" fill="#3C3489">subagents</text>
+<text x="755" y="463" text-anchor="middle" font-size="11" fill="#534AB7">delegate · fan-out · isolation</text>
+
+<rect x="660" y="500" width="190" height="60" rx="4" fill="#FAEEDA" stroke="#854F0B"/>
+<text x="755" y="525" text-anchor="middle" font-size="13" font-weight="500" fill="#633806">verification</text>
+<text x="755" y="543" text-anchor="middle" font-size="11" fill="#854F0B">no "done" without green run</text>
+
+<rect x="880" y="180" width="180" height="60" rx="4" fill="#F1EFE8" stroke="#5F5E5A"/>
+<text x="970" y="205" text-anchor="middle" font-size="13" font-weight="500" fill="#444441">tracer</text>
+<text x="970" y="223" text-anchor="middle" font-size="11" fill="#5F5E5A">spans · tokens · cost</text>
+
+<rect x="880" y="260" width="180" height="60" rx="4" fill="#F1EFE8" stroke="#5F5E5A"/>
+<text x="970" y="285" text-anchor="middle" font-size="13" font-weight="500" fill="#444441">sinks</text>
+<text x="970" y="303" text-anchor="middle" font-size="11" fill="#5F5E5A">console · JSONL · OTel · UI</text>
+
+<rect x="340" y="530" width="200" height="60" rx="4" fill="#E1F5EE" stroke="#0F6E56"/>
+<text x="440" y="552" text-anchor="middle" font-size="13" font-weight="500" fill="#085041">LLM client</text>
+<text x="440" y="570" text-anchor="middle" font-size="11" fill="#0F6E56">.chat(messages, model) + pricing</text>
+
+<rect x="250" y="620" width="180" height="48" rx="4" fill="#F1EFE8" stroke="#5F5E5A"/>
+<text x="340" y="640" text-anchor="middle" font-size="12" font-weight="500" fill="#444441">Google AI Studio</text>
+<text x="340" y="656" text-anchor="middle" font-size="11" fill="#5F5E5A">gemma-4-31b-it</text>
+
+<rect x="460" y="620" width="180" height="48" rx="4" fill="#F1EFE8" stroke="#5F5E5A"/>
+<text x="550" y="640" text-anchor="middle" font-size="12" font-weight="500" fill="#444441">Groq</text>
+<text x="550" y="656" text-anchor="middle" font-size="11" fill="#5F5E5A">fallback · big orchestrator models</text>
+
+<path d="M170,96 L200,96" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#ar)"/>
+<path d="M400,96 L430,96" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#ar)"/>
+<path d="M530,122 L530,180" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#ar)"/>
+<path d="M220,210 L250,210" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#ar)"/>
+<path d="M220,285 L250,285" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#ar)"/>
+<path d="M220,360 L250,360" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#ar)"/>
+<path d="M220,450 L300,450 L300,370" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#ar)"/>
+<path d="M610,300 L635,300 L635,210 L660,210" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#ar)"/>
+<path d="M755,240 L755,260" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#ar)"/>
+<path d="M660,230 L645,230 L645,370 L660,370" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#ar)"/>
+<path d="M600,370 L600,450 L660,450" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#ar)"/>
+<path d="M560,370 L560,530 L660,530" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#ar)"/>
+<path d="M440,370 L440,530" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#ar)"/>
+<path d="M620,180 L620,160 L940,160 L940,180" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#ar)"/>
+<path d="M970,240 L970,260" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#ar)"/>
+<path d="M390,590 L390,604 L340,604 L340,620" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#ar)"/>
+<path d="M490,590 L490,604 L550,604 L550,620" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#ar)"/>
+
+<text x="537" y="150" font-size="11" fill="#5F5E5A">drives steps</text>
+<text x="226" y="204" font-size="11" fill="#5F5E5A">at init</text>
+<text x="226" y="279" font-size="11" fill="#5F5E5A">on demand</text>
+<text x="226" y="354" font-size="11" fill="#5F5E5A">each turn</text>
+<text x="240" y="444" font-size="11" fill="#5F5E5A">load / save every turn</text>
+<text x="618" y="290" font-size="11" fill="#5F5E5A">run</text>
+<text x="762" y="254" font-size="11" fill="#5F5E5A">bash runs boxed</text>
+<text x="560" y="414" font-size="11" fill="#5F5E5A" text-anchor="end">delegate · answers only return</text>
+<text x="566" y="500" font-size="11" fill="#5F5E5A">gates "done"</text>
+<text x="448" y="444" font-size="11" fill="#5F5E5A">model call</text>
+<text x="640" y="152" font-size="11" fill="#5F5E5A">spans: every model + tool call</text>
+<text x="365" y="600" font-size="11" fill="#5F5E5A" text-anchor="end">https</text>
+
+<text x="20" y="700" font-size="11" fill="#5F5E5A">purple = harness machinery · teal = state + model path · coral = safety + execution · amber = quality gate · gray = UI / external / observability</text>
+</svg>
