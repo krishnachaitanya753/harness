@@ -9,9 +9,9 @@ Run this only after demo_memory_part1.py has created sessions/demo.jsonl
 
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))  # so `from agent import ...` finds the root
+sys.path.insert(0, str(Path(__file__).parent.parent))  # so `from harness.agent import ...` finds the root
 
-from agent import Agent, console_approver
+from harness.agent import Agent, console_approver
 
 # Deliberately a different (new) session — this agent has no memory of "demo".
 agent = Agent(session="investigator", approver=console_approver)

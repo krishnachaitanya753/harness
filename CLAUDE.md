@@ -46,6 +46,22 @@ A harness is the loop around an LLM. Likely components, smallest-first:
 
 We pick the *next* item only when the current one is understood.
 
+## Repo layout
+
+Three packages, one dependency direction: **UI → harness → model**. Nothing points back up.
+
+- `model/` — talking to LLM providers, nothing else. `client.py` (LLMClient), `pricing.py`.
+  Has no idea an agent exists; that's what makes swapping providers cheap.
+- `harness/` — the engine. `agent.py` (the loop), `context.py` (budgets + instructions +
+  @refs + compaction), `tools.py` (registry + all tools), `workspace.py`/`sandbox.py`
+  (security), `sessions.py`/`skills.py` (memory), `tracer.py`, `orchestrator.py`,
+  `subagents.py`, `verify.py`.
+- `ui/` — `tui.py`. The only package allowed to import `textual`.
+- `demos/` — one runnable script per concept. `skills/` — skill *content* (SKILL.md), not code.
+
+**Split a file into a folder only when it earns it** (~350+ lines, or two concerns inside it
+change for different reasons). Folders with one small file are worse than one readable file.
+
 ## Repo conventions
 
 - Keep files small and named for the concept they teach.

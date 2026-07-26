@@ -19,7 +19,9 @@ so it isn't subject to the workspace jail.
 import json
 from pathlib import Path
 
-SESSIONS_DIR = Path(__file__).parent / "sessions"
+# .parent.parent because this module lives in harness/ — sessions/ belongs at
+# the PROJECT root, not inside the package.
+SESSIONS_DIR = Path(__file__).parent.parent / "sessions"
 
 
 def save_session(name, messages):

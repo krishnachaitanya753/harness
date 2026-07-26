@@ -17,9 +17,10 @@ import re
 from dataclasses import dataclass
 from typing import Callable
 
-from limits import clamp
-from memory import search_sessions
-from sandbox import run_shell
+from harness.context import clamp
+from harness.sandbox import run_shell
+from harness.sessions import search_sessions
+from harness.subagents import run_subagent, run_subagents_parallel
 
 
 @dataclass
@@ -87,6 +88,18 @@ def search_memory(args, workspace):
     return "\n".join(hits) if hits else "No matches found."
 
 
+def delegate(args, workspace):
+    """Run one subtask in a fresh, isolated agent; return only its answer."""
+    return run_subagent(args["task"], workspace=workspace.root)
+
+
+def fan_out(args, workspace):
+    """Run several independent subtasks in parallel, each in its own isolated
+    agent; return the answers in the same order as the tasks."""
+    results = run_subagents_parallel(args["tasks"], workspace=workspace.root)
+    return "\n".join(f"{i+1}. {r}" for i, r in enumerate(results))
+
+
 # ---- registry -------------------------------------------------------------
 
 TOOLS = {
@@ -124,6 +137,20 @@ TOOLS = {
         parameters={"query": "the word or phrase to search for"},
         func=search_memory,
         requires_approval=False,   # read-only → runs free
+    ),
+    "delegate": Tool(
+        name="delegate",
+        description="Run one self-contained subtask in a fresh, isolated agent.",
+        parameters={"task": "the subtask description"},
+        func=delegate,
+        requires_approval=False,   # the subagent's own tools still gate themselves
+    ),
+    "fan_out": Tool(
+        name="fan_out",
+        description="Run several independent subtasks in parallel, each isolated.",
+        parameters={"tasks": "a list of subtask description strings"},
+        func=fan_out,
+        requires_approval=False,
     ),
 }
 

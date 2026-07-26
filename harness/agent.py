@@ -11,17 +11,23 @@ decides whether/how to run it (approval gate, workspace confinement) and feeds t
 result back. The model never touches the machine directly.
 """
 
-from client import LLMClient
-from compaction import maybe_compact
-from context import deliver
-from instructions import build_system_prompt
-from limits import TOKEN_BUDGET, clamp
-from memory import load_session, save_session
-from skills import render_skills
-from tools import TOOLS, parse_tool_call, run_tool, tool_instructions
-from workspace import Workspace
+from harness.context import (
+    TOKEN_BUDGET,
+    build_system_prompt,
+    clamp,
+    deliver,
+    maybe_compact,
+)
+from harness.sessions import load_session, save_session
+from harness.skills import render_skills
+from harness.tools import TOOLS, parse_tool_call, run_tool, tool_instructions
+from harness.verify import get_test_command, is_code_file, saw_passing_run
+from harness.workspace import Workspace
+from model.client import LLMClient
+from model.pricing import estimate_cost
 
-MAX_STEPS = 6  # cap the tool loop so a confused model can't loop forever
+MAX_STEPS = 6         # cap the tool loop so a confused model can't loop forever
+VERIFY_MAX_STEPS = 3  # extra budget for the "prove it passed" round (Ch 12)
 
 
 def console_approver(name, args):
@@ -32,12 +38,14 @@ def console_approver(name, args):
 
 class Agent:
     def __init__(self, client=None, system_prompt="You are a helpful agent.",
-                 workspace=".", approver=None, token_budget=TOKEN_BUDGET, session=None):
+                 workspace=".", approver=None, token_budget=TOKEN_BUDGET, session=None, tracer=None):
         self.client = client or LLMClient()
         self.workspace = Workspace(workspace)
         self.approver = approver  # callable(name, args) -> bool; None = deny everything
         self.token_budget = token_budget
         self.session = session  # session name; if set, conversation persists to disk
+        self.tracer = tracer  # Tracer or None; records a span per model/tool call (Ch 13)
+        self._wrote_code_file = False  # tracks whether this run() touched a code file (Ch 12)
 
         # A resumed session's saved messages ARE the conversation state — load
         # verbatim instead of rebuilding, so a restarted process picks up
@@ -60,12 +68,24 @@ class Agent:
         if self.session:
             save_session(self.session, self.messages)
 
+    def _call_model(self):
+        """Call the model, recording a traced span if a tracer is attached.
+        Every call site (send, the tool loop, verification) routes through
+        here so tracing doesn't have to be duplicated at each one."""
+        if not self.tracer:
+            return self.client.chat(self.messages)
+        with self.tracer.timed("llm_call", self.client.model) as attrs:
+            reply = self.client.chat(self.messages)
+            attrs["tokens"] = self.client.last_usage
+            attrs["cost"] = round(estimate_cost(self.client.model, self.client.last_usage or 0), 4)
+        return reply
+
     def send(self, user_message):
         """One plain turn (no tool loop)."""
         user_message = deliver(user_message, self.workspace)
         self.messages.append({"role": "user", "content": user_message})
         self._manage_context()
-        reply = self.client.chat(self.messages)
+        reply = self._call_model()
         self.messages.append({"role": "assistant", "content": reply})
         self._save()
         return reply
@@ -85,16 +105,16 @@ class Agent:
         result back -> repeat until a final (non-tool) answer or the step cap."""
         user_message = deliver(user_message, self.workspace)
         self.messages.append({"role": "user", "content": user_message})
+        self._wrote_code_file = False
 
         for _ in range(MAX_STEPS):
             self._manage_context()
-            reply = self.client.chat(self.messages)
+            reply = self._call_model()
             self.messages.append({"role": "assistant", "content": reply})
 
             call = parse_tool_call(reply)
             if call is None:
-                self._save()
-                return reply  # no tool requested => this is the final answer
+                return self._verify_if_needed(reply)  # no tool requested => proposed final answer
 
             name, args = call["tool"], call["args"]
             # Clamp so one giant tool output can't flood the window on its own.
@@ -112,7 +132,55 @@ class Agent:
             approved = self.approver(name, args) if self.approver else False
             if not approved:
                 return f"Denied: {name} was not approved."
-        return run_tool(name, args, self.workspace)
+
+        if self.tracer:
+            with self.tracer.timed("tool_call", name) as attrs:
+                attrs["args"] = args
+                result = run_tool(name, args, self.workspace)
+                attrs["result"] = result if len(str(result)) <= 200 else str(result)[:200] + "..."
+        else:
+            result = run_tool(name, args, self.workspace)
+
+        if name == "write_file" and is_code_file(args.get("path", "")):
+            self._wrote_code_file = True  # arms the verification gate (Ch 12)
+        return result
+
+    def _verify_if_needed(self, reply):
+        """Ch 12: a confident sentence is not proof. If this turn wrote a code
+        file and AGENTS.md names a test command, don't accept "done" until we
+        see a REAL passing run of it in the transcript — force the model to
+        actually run it via bash rather than just claiming success."""
+        test_command = get_test_command(self.workspace) if self._wrote_code_file else None
+        if not test_command:
+            self._save()
+            return reply  # gate doesn't arm: no code touched, or no test command configured
+
+        self.messages.append({
+            "role": "user",
+            "content": f"Before finishing: run `{test_command}` via the bash tool and show "
+                       "a real passing result. Don't just say it passes.",
+        })
+        for _ in range(VERIFY_MAX_STEPS):
+            self._manage_context()
+            reply = self._call_model()
+            self.messages.append({"role": "assistant", "content": reply})
+
+            call = parse_tool_call(reply)
+            if call is None:
+                self.messages.append({"role": "user", "content": "That's not a real run. Use the bash tool."})
+                continue
+
+            name, args = call["tool"], call["args"]
+            result = clamp(self._dispatch(name, args))
+            self.messages.append({"role": "user", "content": f"[tool result for {name}]: {result}"})
+            if name == "bash" and saw_passing_run(result):
+                final = self._call_model()
+                self.messages.append({"role": "assistant", "content": final})
+                self._save()
+                return final
+
+        self._save()
+        return f"Verification failed: no passing run of `{test_command}` observed."
 
 
 if __name__ == "__main__":

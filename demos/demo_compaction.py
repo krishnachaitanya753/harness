@@ -9,10 +9,10 @@ Run (from the project root):  uv run python demos/demo_compaction.py
 
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))  # so `from agent import ...` finds the root
+sys.path.insert(0, str(Path(__file__).parent.parent))  # so `from harness.agent import ...` finds the root
 
-from agent import Agent
-from limits import estimate_tokens
+from harness.agent import Agent
+from harness.context import estimate_tokens
 
 agent = Agent(token_budget=800)  # tiny on purpose; real default is 60k
 

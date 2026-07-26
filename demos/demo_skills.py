@@ -10,9 +10,9 @@ Run (from the project root):  uv run python demos/demo_skills.py
 
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))  # so `from agent import ...` finds the root
+sys.path.insert(0, str(Path(__file__).parent.parent))  # so `from harness.agent import ...` finds the root
 
-from agent import Agent, console_approver
+from harness.agent import Agent, console_approver
 
 agent = Agent(workspace=".", approver=console_approver)
 

@@ -9,9 +9,9 @@ Run this only after demo_memory_part1.py (from the project root):
 
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))  # so `from agent import ...` finds the root
+sys.path.insert(0, str(Path(__file__).parent.parent))  # so `from harness.agent import ...` finds the root
 
-from agent import Agent
+from harness.agent import Agent
 
 agent = Agent(session="demo")
 
