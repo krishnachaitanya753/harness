@@ -1,8 +1,12 @@
 """Demo part 1 of 2: tell the agent a fact, then this process exits.
 
-Run:  uv run python demo_memory_part1.py
-Then: uv run python demo_memory_part2.py   (a brand new process)
+Run (from the project root):  uv run python demos/demo_memory_part1.py
+Then:                          uv run python demos/demo_memory_part2.py   (a brand new process)
 """
+
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))  # so `from agent import ...` finds the root
 
 from agent import Agent
 

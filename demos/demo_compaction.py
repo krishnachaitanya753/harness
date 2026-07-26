@@ -4,8 +4,12 @@ We plant a code name in the FIRST turn (the protected head), bury it under fille
 chatter until the conversation blows past the budget, and then ask for it. The
 middle gets summarized away; the head survives verbatim — so it should remember.
 
-Run:  uv run python demo_compaction.py
+Run (from the project root):  uv run python demos/demo_compaction.py
 """
+
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))  # so `from agent import ...` finds the root
 
 from agent import Agent
 from limits import estimate_tokens

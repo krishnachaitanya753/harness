@@ -7,8 +7,12 @@ Two checks:
    sandboxed subprocess's environment. It should NOT be there, because
    sandbox.py only forwards PATH/SYSTEMROOT/COMSPEC.
 
-Run:  uv run python demo_sandbox.py
+Run (from the project root):  uv run python demos/demo_sandbox.py
 """
+
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))  # so `from agent import ...` finds the root
 
 from agent import Agent, console_approver
 

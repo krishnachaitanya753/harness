@@ -2,9 +2,14 @@
 agent never loaded as its active conversation. Proves search_memory scans
 across all sessions on disk, not just the current one.
 
-Run this only after demo_memory_part1.py has created sessions/demo.jsonl:
-  uv run python demo_memory_search.py
+Run this only after demo_memory_part1.py has created sessions/demo.jsonl
+(from the project root):
+  uv run python demos/demo_memory_search.py
 """
+
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))  # so `from agent import ...` finds the root
 
 from agent import Agent, console_approver
 
