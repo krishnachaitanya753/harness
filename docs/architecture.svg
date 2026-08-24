@@ -1,0 +1,105 @@
+<svg viewBox="0 0 1200 830" width="2400" height="1660" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, system-ui, -apple-system, sans-serif">
+<rect x="0" y="0" width="1200" height="830" fill="#1E1D17"/>
+
+<text x="40" y="56" font-size="34" font-weight="700" fill="#F7F5EE">Agent harness — architecture</text>
+<text x="40" y="86" font-size="16" fill="#A9A79C">one dependency direction: UI → harness → model. nothing points back up.</text>
+
+<rect x="880" y="30" width="280" height="40" rx="8" fill="#2B2A22" stroke="#3D3C32"/>
+<circle cx="902" cy="50" r="5" fill="#D85A30"/>
+<circle cx="920" cy="50" r="5" fill="#EF9F27"/>
+<circle cx="938" cy="50" r="5" fill="#5DCAA5"/>
+<text x="956" y="56" font-family="Consolas, Menlo, monospace" font-size="14" fill="#D6D4C8">uv run python ui/tui.py</text>
+
+<rect x="40" y="110" width="1120" height="104" rx="6" fill="none" stroke="#3D3C32"/>
+<text x="60" y="134" font-size="15" font-weight="500" fill="#8B8980">ui/</text>
+<rect x="60" y="142" width="300" height="56" rx="5" fill="#26251F" stroke="#888780"/>
+<text x="80" y="167" font-size="17" font-weight="500" fill="#D6D4C8">tui.py</text>
+<text x="80" y="187" font-size="13" fill="#A9A79C">chat transcript · live trace · modals</text>
+<text x="392" y="167" font-size="14" fill="#A9A79C">streams tokens, renders markdown, runs slash commands</text>
+<text x="392" y="189" font-size="14" fill="#6E6C63">the only package that imports textual</text>
+
+<path d="M600,214 L600,242" fill="none" stroke="#6E6C63" stroke-width="2"/>
+<path d="M594,236 L600,244 L606,236" fill="none" stroke="#6E6C63" stroke-width="2"/>
+
+<rect x="40" y="244" width="1120" height="308" rx="6" fill="none" stroke="#3D3C32"/>
+<text x="60" y="268" font-size="15" font-weight="500" fill="#8B8980">harness/ — the engine</text>
+
+<rect x="60" y="280" width="340" height="64" rx="5" fill="#26251F" stroke="#7F77DD"/>
+<text x="80" y="306" font-size="17" font-weight="500" fill="#AFA9EC">orchestrator.py</text>
+<text x="80" y="328" font-size="13" fill="#A9A79C">model plans steps, harness drives them</text>
+
+<rect x="430" y="280" width="340" height="64" rx="5" fill="#26251F" stroke="#7F77DD"/>
+<text x="450" y="306" font-size="17" font-weight="500" fill="#AFA9EC">agent.py</text>
+<text x="450" y="328" font-size="13" fill="#A9A79C">the loop · messages[] · approval gate</text>
+
+<rect x="800" y="280" width="360" height="64" rx="5" fill="#26251F" stroke="#7F77DD"/>
+<text x="820" y="306" font-size="17" font-weight="500" fill="#AFA9EC">subagents.py</text>
+<text x="820" y="328" font-size="13" fill="#A9A79C">delegate · fan-out · context isolation</text>
+
+<rect x="60" y="364" width="255" height="64" rx="5" fill="#26251F" stroke="#7F77DD"/>
+<text x="78" y="390" font-size="16" font-weight="500" fill="#AFA9EC">context.py</text>
+<text x="78" y="411" font-size="13" fill="#A9A79C">@refs · budgets · compaction</text>
+
+<rect x="342" y="364" width="255" height="64" rx="5" fill="#26251F" stroke="#7F77DD"/>
+<text x="360" y="390" font-size="16" font-weight="500" fill="#AFA9EC">tools.py</text>
+<text x="360" y="411" font-size="13" fill="#A9A79C">registry + 7 tools</text>
+
+<rect x="623" y="364" width="255" height="64" rx="5" fill="#26251F" stroke="#7F77DD"/>
+<text x="641" y="390" font-size="16" font-weight="500" fill="#AFA9EC">skills.py</text>
+<text x="641" y="411" font-size="13" fill="#A9A79C">SKILL.md loaded on demand</text>
+
+<rect x="905" y="364" width="255" height="64" rx="5" fill="#26251F" stroke="#5DCAA5"/>
+<text x="923" y="390" font-size="16" font-weight="500" fill="#5DCAA5">sessions.py</text>
+<text x="923" y="411" font-size="13" fill="#A9A79C">durable JSONL · recall</text>
+
+<rect x="60" y="448" width="255" height="64" rx="5" fill="#26251F" stroke="#F0997B"/>
+<text x="78" y="474" font-size="16" font-weight="500" fill="#F0997B">workspace.py</text>
+<text x="78" y="495" font-size="13" fill="#A9A79C">path jail + secrets denylist</text>
+
+<rect x="342" y="448" width="255" height="64" rx="5" fill="#26251F" stroke="#F0997B"/>
+<text x="360" y="474" font-size="16" font-weight="500" fill="#F0997B">sandbox.py</text>
+<text x="360" y="495" font-size="13" fill="#A9A79C">scrubbed subprocess</text>
+
+<rect x="623" y="448" width="255" height="64" rx="5" fill="#26251F" stroke="#ED93B1"/>
+<text x="641" y="474" font-size="16" font-weight="500" fill="#ED93B1">verify.py</text>
+<text x="641" y="495" font-size="13" fill="#A9A79C">no "done" without a green run</text>
+
+<rect x="905" y="448" width="255" height="64" rx="5" fill="#26251F" stroke="#888780"/>
+<text x="923" y="474" font-size="16" font-weight="500" fill="#D6D4C8">tracer.py</text>
+<text x="923" y="495" font-size="13" fill="#A9A79C">spans · tokens · cost · ttft</text>
+
+<path d="M600,552 L600,580" fill="none" stroke="#6E6C63" stroke-width="2"/>
+<path d="M594,574 L600,582 L606,574" fill="none" stroke="#6E6C63" stroke-width="2"/>
+
+<rect x="40" y="582" width="1120" height="104" rx="6" fill="none" stroke="#3D3C32"/>
+<text x="60" y="606" font-size="15" font-weight="500" fill="#8B8980">model/</text>
+
+<rect x="60" y="614" width="300" height="56" rx="5" fill="#26251F" stroke="#5DCAA5"/>
+<text x="80" y="639" font-size="17" font-weight="500" fill="#5DCAA5">client.py</text>
+<text x="80" y="659" font-size="13" fill="#A9A79C">chat · stream · retry · fallback</text>
+
+<rect x="380" y="614" width="300" height="56" rx="5" fill="#26251F" stroke="#5DCAA5"/>
+<text x="400" y="639" font-size="17" font-weight="500" fill="#5DCAA5">pricing.py</text>
+<text x="400" y="659" font-size="13" fill="#A9A79C">cost from token usage</text>
+
+<text x="712" y="639" font-size="14" fill="#A9A79C">knows nothing about agents — which is why</text>
+<text x="712" y="661" font-size="14" fill="#6E6C63">adding a provider is one registry entry</text>
+
+<path d="M210,686 L210,714" fill="none" stroke="#6E6C63" stroke-width="2"/>
+<path d="M204,708 L210,716 L216,708" fill="none" stroke="#6E6C63" stroke-width="2"/>
+<path d="M530,670 L530,700 L280,700 L280,714" fill="none" stroke="#6E6C63" stroke-width="2" stroke-dasharray="5 4"/>
+
+<rect x="60" y="716" width="300" height="52" rx="5" fill="#26251F" stroke="#888780"/>
+<text x="80" y="740" font-size="15" font-weight="500" fill="#D6D4C8">Google AI Studio</text>
+<text x="80" y="759" font-size="13" fill="#A9A79C">gemma-4-31b-it · primary</text>
+
+<rect x="380" y="716" width="300" height="52" rx="5" fill="#26251F" stroke="#888780"/>
+<text x="400" y="740" font-size="15" font-weight="500" fill="#D6D4C8">Groq</text>
+<text x="400" y="759" font-size="13" fill="#A9A79C">openai/gpt-oss-120b · fallback</text>
+
+<text x="712" y="742" font-size="13" fill="#6E6C63">retry transient failures, then fall back.</text>
+<text x="712" y="762" font-size="13" fill="#6E6C63">our own bugs fail loudly instead.</text>
+
+<text x="40" y="806" font-family="Consolas, Menlo, monospace" font-size="14" fill="#6E6C63">agent = model + harness + UI</text>
+<text x="1160" y="806" font-size="13" fill="#6E6C63" text-anchor="end">purple = machinery · teal = state &amp; model path · coral = safety · pink = quality gate</text>
+</svg>
