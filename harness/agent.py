@@ -11,6 +11,8 @@ decides whether/how to run it (approval gate, workspace confinement) and feeds t
 result back. The model never touches the machine directly.
 """
 
+import time
+
 from harness.context import (
     TOKEN_BUDGET,
     build_system_prompt,
@@ -38,13 +40,18 @@ def console_approver(name, args):
 
 class Agent:
     def __init__(self, client=None, system_prompt="You are a helpful agent.",
-                 workspace=".", approver=None, token_budget=TOKEN_BUDGET, session=None, tracer=None):
+                 workspace=".", approver=None, token_budget=TOKEN_BUDGET, session=None,
+                 tracer=None, on_token=None):
         self.client = client or LLMClient()
         self.workspace = Workspace(workspace)
         self.approver = approver  # callable(name, args) -> bool; None = deny everything
         self.token_budget = token_budget
         self.session = session  # session name; if set, conversation persists to disk
         self.tracer = tracer  # Tracer or None; records a span per model/tool call (Ch 13)
+        # on_token: fn(delta) — set by a UI that wants to render tokens live.
+        # Left None everywhere else (subagents, orchestrator steps, compaction),
+        # which is why those paths needed no changes when streaming landed.
+        self.on_token = on_token
         self._wrote_code_file = False  # tracks whether this run() touched a code file (Ch 12)
 
         # A resumed session's saved messages ARE the conversation state — load
@@ -73,11 +80,32 @@ class Agent:
         Every call site (send, the tool loop, verification) routes through
         here so tracing doesn't have to be duplicated at each one."""
         if not self.tracer:
-            return self.client.chat(self.messages)
-        with self.tracer.timed("llm_call", self.client.model) as attrs:
-            reply = self.client.chat(self.messages)
+            return self.client.chat(self.messages, on_token=self.on_token)
+
+        # Time to first token: the number that actually tracks how fast this
+        # *feels*, as opposed to total duration. Only meaningful when streaming.
+        first_token_at = []
+
+        def timed_on_token(delta):
+            if not first_token_at:
+                first_token_at.append(time.monotonic())
+            self.on_token(delta)
+
+        # Span name is the operation; provider/model go in attributes and are
+        # read AFTER the call, so a fallback shows the model that actually
+        # answered rather than the one we intended to use. A trace that names
+        # the default model would quietly lie (and misprice) on every fallback.
+        with self.tracer.timed("llm_call", "chat") as attrs:
+            started = time.monotonic()
+            reply = self.client.chat(
+                self.messages, on_token=timed_on_token if self.on_token else None
+            )
+            attrs["provider"] = self.client.last_provider
+            attrs["model"] = self.client.last_model
             attrs["tokens"] = self.client.last_usage
-            attrs["cost"] = round(estimate_cost(self.client.model, self.client.last_usage or 0), 4)
+            attrs["cost"] = round(estimate_cost(self.client.last_model, self.client.last_usage or 0), 4)
+            if first_token_at:
+                attrs["ttft"] = f"{first_token_at[0] - started:.2f}s"
         return reply
 
     def send(self, user_message):

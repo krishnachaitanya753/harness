@@ -192,13 +192,19 @@ def run_tool(name, args, workspace):
 _THOUGHT = re.compile(r"<thought>.*?</thought>", re.DOTALL)
 
 
+def strip_thought(text):
+    """Remove <thought>...</thought> reasoning blocks. Public because the UI
+    needs it too — a streamed reply shouldn't paint raw reasoning on screen."""
+    return _THOUGHT.sub("", text)
+
+
 def parse_tool_call(text):
     """If `text` is a tool call, return {'tool':..., 'args':...}; else None.
 
     Gemma prepends a <thought>...</thought> block and sometimes ```json fences,
     so we strip those first, then pull out the first {...} and JSON-parse it.
     """
-    cleaned = _THOUGHT.sub("", text).strip()
+    cleaned = strip_thought(text).strip()
     if cleaned.startswith("```"):
         cleaned = cleaned.strip("`")
         cleaned = re.sub(r"^json\s*", "", cleaned, flags=re.IGNORECASE).strip()

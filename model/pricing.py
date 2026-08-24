@@ -7,8 +7,13 @@ shape is ready for a real hosted metered model to slot in with nonzero rates.
 
 # model_name -> (cost per 1K input tokens, cost per 1K output tokens), USD.
 PRICING = {
+    # Google AI Studio (free tier)
     "gemma-4-31b-it": (0.0, 0.0),
     "gemma-4-26b-a4b-it": (0.0, 0.0),
+    # Groq (free tier) — the fallback chain
+    "openai/gpt-oss-120b": (0.0, 0.0),
+    "openai/gpt-oss-20b": (0.0, 0.0),
+    "qwen/qwen3.6-27b": (0.0, 0.0),
 }
 
 

@@ -36,6 +36,18 @@ def save_session(name, messages):
             f.write(json.dumps(message) + "\n")
 
 
+def list_sessions():
+    """Every saved session as (name, message_count, modified_time), newest
+    first. Used by the UI's /sessions command."""
+    if not SESSIONS_DIR.is_dir():
+        return []
+    rows = []
+    for path in SESSIONS_DIR.glob("*.jsonl"):
+        count = sum(1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip())
+        rows.append((path.stem, count, path.stat().st_mtime))
+    return sorted(rows, key=lambda r: r[2], reverse=True)
+
+
 def load_session(name):
     """Return the saved message list for `name`, or None if it doesn't exist
     yet (first run of a new session name)."""
