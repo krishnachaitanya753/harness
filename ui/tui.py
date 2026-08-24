@@ -111,7 +111,7 @@ class AssistantMessage(Static):
 class ToolCard(Static):
     """A completed tool call, rendered from a tracer span."""
 
-    def __init__(self, name, args, result):
+    def __init__(self, name, args, result, ok=True):
         args_text = ", ".join(f"{k}={v!r}" for k, v in (args or {}).items())
         if len(args_text) > 80:
             args_text = args_text[:80] + "..."
@@ -119,6 +119,9 @@ class ToolCard(Static):
         if len(result_text) > 100:
             result_text = result_text[:100] + "..."
         super().__init__(f"[{name}] {args_text}\n  → {result_text}")
+        if not ok:
+            # The harness knows this failed now, so the UI can say so.
+            self.add_class("failed")
 
 
 class SystemNote(Static):
@@ -174,6 +177,7 @@ class HarnessApp(App):
         color: $text-muted; border-left: solid $warning;
         padding: 0 1; margin: 0 0 1 1;
     }
+    ToolCard.failed { border-left: solid $error; color: $error; }
     SystemNote { color: $text-muted; margin: 1 0; }
 
     #approval-box {
@@ -297,9 +301,10 @@ class HarnessApp(App):
                 span.name,
                 span.attributes.get("args"),
                 span.attributes.get("result"),
+                span.attributes.get("ok", True),
             )
 
-    def _show_tool_card(self, name, args, result):
+    def _show_tool_card(self, name, args, result, ok=True):
         """A tool ran, so the streamed JSON that requested it is now noise —
         replace that placeholder with the tool card itself."""
         if self.current_msg is not None:
@@ -307,7 +312,7 @@ class HarnessApp(App):
             self.current_msg = None
         if self.stream_view is not None:
             self.stream_view = StreamView()   # next model turn starts clean
-        self._mount(ToolCard(name, args, result))
+        self._mount(ToolCard(name, args, result, ok))
 
     def _tui_approver(self, name, args):
         """Runs on the worker thread; blocks on an Event while the modal is

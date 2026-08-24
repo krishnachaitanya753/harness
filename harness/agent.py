@@ -22,7 +22,7 @@ from harness.context import (
 )
 from harness.sessions import load_session, save_session
 from harness.skills import render_skills
-from harness.tools import TOOLS, parse_tool_call, run_tool, tool_instructions
+from harness.tools import TOOLS, ToolResult, parse_tool_call, run_tool, strip_thought, tool_instructions
 from harness.verify import get_test_command, is_code_file, saw_passing_run
 from harness.workspace import Workspace
 from model.client import LLMClient
@@ -103,10 +103,28 @@ class Agent:
             attrs["provider"] = self.client.last_provider
             attrs["model"] = self.client.last_model
             attrs["tokens"] = self.client.last_usage
-            attrs["cost"] = round(estimate_cost(self.client.last_model, self.client.last_usage or 0), 4)
+            attrs["cost"] = round(
+                estimate_cost(
+                    self.client.last_model,
+                    self.client.last_prompt_tokens,
+                    self.client.last_completion_tokens,
+                ),
+                6,
+            )
             if first_token_at:
                 attrs["ttft"] = f"{first_token_at[0] - started:.2f}s"
         return reply
+
+    def _remember(self, reply):
+        """Append an assistant reply to the conversation, minus its reasoning.
+
+        A <thought> block is scaffolding for producing THIS reply; keeping it
+        means re-sending every past deliberation on every later turn, which was
+        the single largest source of context bloat. Falls back to the raw text
+        if a reply was nothing but reasoning, so we never store an empty turn.
+        """
+        cleaned = strip_thought(reply).strip()
+        self.messages.append({"role": "assistant", "content": cleaned or reply})
 
     def send(self, user_message):
         """One plain turn (no tool loop)."""
@@ -114,7 +132,7 @@ class Agent:
         self.messages.append({"role": "user", "content": user_message})
         self._manage_context()
         reply = self._call_model()
-        self.messages.append({"role": "assistant", "content": reply})
+        self._remember(reply)
         self._save()
         return reply
 
@@ -138,17 +156,18 @@ class Agent:
         for _ in range(MAX_STEPS):
             self._manage_context()
             reply = self._call_model()
-            self.messages.append({"role": "assistant", "content": reply})
+            self._remember(reply)
 
             call = parse_tool_call(reply)
             if call is None:
                 return self._verify_if_needed(reply)  # no tool requested => proposed final answer
 
             name, args = call["tool"], call["args"]
+            result = self._dispatch(name, args)
             # Clamp so one giant tool output can't flood the window on its own.
-            result = clamp(self._dispatch(name, args))
-            # Hand the result back so the model can use it on the next turn.
-            self.messages.append({"role": "user", "content": f"[tool result for {name}]: {result}"})
+            self.messages.append(
+                {"role": "user", "content": f"[tool result for {name}]: {clamp(result.content)}"}
+            )
 
         self._save()
         return "Stopped: reached the step limit without a final answer."
@@ -159,13 +178,17 @@ class Agent:
         if tool and tool.requires_approval:
             approved = self.approver(name, args) if self.approver else False
             if not approved:
-                return f"Denied: {name} was not approved."
+                # A refusal is a failure, and now says so out loud.
+                return ToolResult(ok=False, content=f"Denied: {name} was not approved.")
 
         if self.tracer:
             with self.tracer.timed("tool_call", name) as attrs:
                 attrs["args"] = args
                 result = run_tool(name, args, self.workspace)
-                attrs["result"] = result if len(str(result)) <= 200 else str(result)[:200] + "..."
+                attrs["ok"] = result.ok
+                attrs["result"] = (
+                    result.content if len(result.content) <= 200 else result.content[:200] + "..."
+                )
         else:
             result = run_tool(name, args, self.workspace)
 
@@ -191,7 +214,7 @@ class Agent:
         for _ in range(VERIFY_MAX_STEPS):
             self._manage_context()
             reply = self._call_model()
-            self.messages.append({"role": "assistant", "content": reply})
+            self._remember(reply)
 
             call = parse_tool_call(reply)
             if call is None:
@@ -199,11 +222,13 @@ class Agent:
                 continue
 
             name, args = call["tool"], call["args"]
-            result = clamp(self._dispatch(name, args))
-            self.messages.append({"role": "user", "content": f"[tool result for {name}]: {result}"})
-            if name == "bash" and saw_passing_run(result):
+            result = self._dispatch(name, args)
+            self.messages.append(
+                {"role": "user", "content": f"[tool result for {name}]: {clamp(result.content)}"}
+            )
+            if name == "bash" and result.ok and saw_passing_run(result.content):
                 final = self._call_model()
-                self.messages.append({"role": "assistant", "content": final})
+                self._remember(final)
                 self._save()
                 return final
 

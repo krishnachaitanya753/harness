@@ -14,6 +14,7 @@ here without a single caller changing.
 """
 
 import os
+import threading
 import time
 
 from dotenv import load_dotenv
@@ -66,6 +67,13 @@ MAX_ATTEMPTS = 3       # per provider
 BACKOFF_BASE = 1.0     # seconds, doubling: 3 attempts means 2 sleeps (1s, 2s)
 REQUEST_TIMEOUT = 60.0  # per request; the SDK's own default is 600s (10 min)
 
+# Free tiers cap requests per minute, and fan_out fires subagents in parallel —
+# each with its OWN LLMClient, so an instance-level limit would do nothing. This
+# is module-level on purpose: it caps concurrent requests across every client in
+# the process, which is the only place the real limit applies.
+MAX_CONCURRENT_REQUESTS = 3
+_REQUEST_SLOTS = threading.Semaphore(MAX_CONCURRENT_REQUESTS)
+
 
 class ProviderUnavailable(Exception):
     """Provider can't be used at all (e.g. its API key isn't in the env).
@@ -103,9 +111,26 @@ class LLMClient:
 
         # What actually served the most recent call. last_provider/last_model
         # matter for tracing: if the fallback answered, the trace must say so.
-        self.last_usage = None
+        self.last_usage = None              # total tokens; drives compaction
+        self.last_prompt_tokens = 0         # priced separately from output
+        self.last_completion_tokens = 0
         self.last_provider = None
         self.last_model = None
+
+        # Running totals for the life of this client — "what has this session
+        # cost" is not answerable from a single call's usage.
+        self.total_prompt_tokens = 0
+        self.total_completion_tokens = 0
+
+    def _record_usage(self, usage):
+        """Pull per-call and cumulative token counts out of a usage object."""
+        if not usage:
+            return
+        self.last_usage = usage.total_tokens
+        self.last_prompt_tokens = usage.prompt_tokens or 0
+        self.last_completion_tokens = usage.completion_tokens or 0
+        self.total_prompt_tokens += self.last_prompt_tokens
+        self.total_completion_tokens += self.last_completion_tokens
 
     def _client_for(self, provider):
         """Build (and cache) the SDK client for a provider."""
@@ -191,9 +216,9 @@ class LLMClient:
 
     def _call_once(self, client, provider, model, messages):
         """Plain, non-streaming request."""
-        resp = client.chat.completions.create(model=model, messages=messages)
-        if resp.usage:
-            self.last_usage = resp.usage.total_tokens
+        with _REQUEST_SLOTS:  # respect the process-wide concurrency cap
+            resp = client.chat.completions.create(model=model, messages=messages)
+        self._record_usage(resp.usage)
         self.last_provider, self.last_model = provider, model
         return resp.choices[0].message.content
 
@@ -203,29 +228,30 @@ class LLMClient:
         # stream_options: without this the streaming API returns no usage object
         # at all, and last_usage would silently go stale — quietly degrading
         # compaction back to the chars/4 estimate.
-        stream = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            stream=True,
-            stream_options={"include_usage": True},
-        )
-
         chunks = []
-        try:
-            for event in stream:
-                if event.usage:
-                    self.last_usage = event.usage.total_tokens
-                if not event.choices:
-                    continue  # the final usage-only event carries no choices
-                delta = event.choices[0].delta.content
-                if delta:
-                    chunks.append(delta)
-                    on_token(delta)
-        except RETRYABLE as e:
-            if chunks:
-                # Past the point of no return — a human has seen these tokens.
-                raise StreamInterrupted(f"{type(e).__name__} after {len(chunks)} chunks") from e
-            raise  # nothing shown yet, so a normal retry is still honest
+        # The slot is held for the whole stream — it's one open request until
+        # the last chunk arrives, not just until the first.
+        with _REQUEST_SLOTS:
+            stream = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                stream=True,
+                stream_options={"include_usage": True},
+            )
+            try:
+                for event in stream:
+                    self._record_usage(event.usage)
+                    if not event.choices:
+                        continue  # the final usage-only event carries no choices
+                    delta = event.choices[0].delta.content
+                    if delta:
+                        chunks.append(delta)
+                        on_token(delta)
+            except RETRYABLE as e:
+                if chunks:
+                    # Past the point of no return — a human has seen these tokens.
+                    raise StreamInterrupted(f"{type(e).__name__} after {len(chunks)} chunks") from e
+                raise  # nothing shown yet, so a normal retry is still honest
 
         self.last_provider, self.last_model = provider, model
         return "".join(chunks)

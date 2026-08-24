@@ -1,11 +1,15 @@
 """Pricing — cost from token usage.
 
-A lookup table so cost comes from data, not scattered constants. Our models
-are free-tier/open (Google AI Studio, Groq), so every rate here is 0 — but the
-shape is ready for a real hosted metered model to slot in with nonzero rates.
+A lookup table so cost comes from data, not scattered constants. Input and
+output tokens are priced SEPARATELY because real providers charge 3-5x more for
+output; averaging the two rates (which this used to do) produces a number that
+looks precise and isn't.
+
+Our models are free-tier/open, so every rate here is 0 — but the shape is right
+for a metered model to slot in.
 """
 
-# model_name -> (cost per 1K input tokens, cost per 1K output tokens), USD.
+# model_name -> (USD per 1K input tokens, USD per 1K output tokens)
 PRICING = {
     # Google AI Studio (free tier)
     "gemma-4-31b-it": (0.0, 0.0),
@@ -17,10 +21,7 @@ PRICING = {
 }
 
 
-def estimate_cost(model, total_tokens):
-    """Rough cost estimate. We only have a combined total_tokens count (not
-    separate input/output) from this API's usage object, so this averages the
-    two rates rather than pricing them separately — fine for free models
-    where the answer is always 0, honest that it's approximate otherwise."""
+def estimate_cost(model, prompt_tokens=0, completion_tokens=0):
+    """Cost for one call, pricing input and output at their own rates."""
     rate_in, rate_out = PRICING.get(model, (0.0, 0.0))
-    return (total_tokens / 1000) * ((rate_in + rate_out) / 2)
+    return (prompt_tokens / 1000) * rate_in + (completion_tokens / 1000) * rate_out

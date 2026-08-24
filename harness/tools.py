@@ -32,6 +32,23 @@ class Tool:
     requires_approval: bool = False
 
 
+@dataclass
+class ToolResult:
+    """A tool outcome the HARNESS can inspect, not just the model.
+
+    Returning "Error running bash: ..." as a bare string meant a failure was
+    indistinguishable from a result: the tracer couldn't count error rates and
+    nothing downstream could branch on it. The model still sees `content` — the
+    difference is that the harness now sees `ok` too.
+    """
+
+    ok: bool
+    content: str
+
+    def __str__(self):
+        return self.content
+
+
 # ---- tool implementations -------------------------------------------------
 
 # Safe arithmetic: evaluate a math expression WITHOUT eval(). Never eval() text
@@ -177,14 +194,15 @@ def tool_instructions():
 
 
 def run_tool(name, args, workspace):
-    """Dispatch a tool call by name; never raises — returns an error string instead."""
+    """Dispatch a tool call by name. Never raises — a bad tool call shouldn't
+    crash the loop — but the failure is now typed rather than a lookalike string."""
     tool = TOOLS.get(name)
     if tool is None:
-        return f"Error: unknown tool {name!r}"
+        return ToolResult(ok=False, content=f"Error: unknown tool {name!r}")
     try:
-        return tool.func(args, workspace)
-    except Exception as e:  # a bad tool call shouldn't crash the whole loop
-        return f"Error running {name}: {e}"
+        return ToolResult(ok=True, content=str(tool.func(args, workspace)))
+    except Exception as e:
+        return ToolResult(ok=False, content=f"Error running {name}: {e}")
 
 
 # ---- parsing the model's request -----------------------------------------
